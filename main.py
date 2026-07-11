@@ -6,6 +6,7 @@ import pathlib
 import os
 import re
 from timeit import default_timer as timer
+import gzip
 
 class log_line:
     """
@@ -143,38 +144,7 @@ def interpret_fields(fields):
     log.set_from_tuple(fields)
     return log
 
-def run(args):
-    if args.file is None or not os.path.isfile(args.file):
-        raise FileNotFoundError(f"{args.file} doesn't exists")
-    req_count = 0 # total number of requests
-    ips_reqs = dict() # total number of requests for each ip, the lenght will be used as total number of unique ips
-    failed_login_attempts = dict() # number of failed login attempts from each ip
-    error_count = 0 # number of requests answered with 4xx or 5xx
-    hour_reqs = [0] * 24
-    hour_errs = [0] * 24
-    with open(args.file, "r") as f: # throws error if a proper file is not supplied
-        while (line := f.readline()) != '':
-            line = line.strip()
-            try:
-                fields = parse_line(line)
-                log = interpret_fields(fields)
-                req_count += 1
-                if log.ip != None:
-                    ips_reqs[log.ip] = ips_reqs.get(log.ip, 0) + 1
-                is_err = bool(log.status_code is not None and 400 <= log.status_code < 600)
-                error_count += is_err # bool adds 0 or 1 to int
-                # for the time table
-                if log.time is not None:
-                    hour = log.time[0]
-                    if 0 <= hour < 24:
-                        hour_reqs[hour] += 1
-                        hour_errs[hour] += is_err
-                if is_err and log.req is not None and "login" in log.req:
-                    failed_login_attempts[log.ip] = failed_login_attempts.get(log.ip, 0) + 1
-            except ValueError as e:
-                if args.verbose:
-                    print(f"[warning] bad line {line}", file=sys.stderr)
-    #
+def basic_report(args, req_count, error_count, ips_reqs):
     if args.basic_report:
         print("=== Basic report ===")
         print("[info] Total reqs", req_count)
@@ -186,6 +156,8 @@ def run(args):
         for ip, count in top_ips:
             print("\t", ip, ":", count)
         print()
+
+def time_dist_report(args, hour_reqs, hour_errs):
     if args.time_distribution:
         print("=== Request count by time ===")
         print("[info] Peak requests hour is marked with *\n")
@@ -193,6 +165,9 @@ def run(args):
         peak_hour = hour_reqs.index(max(hour_reqs))
         for i, (req, err) in enumerate(zip(hour_reqs, hour_errs)):
             print(f"{i:2.0f}"+ ("*" if i == peak_hour else ""), req, err, sep="\t\t")
+        print()
+
+def login_report(args, failed_login_attempts):
     if args.login_attack:
         print("=== Failed login attempts ===")
         for ip, count in failed_login_attempts.items():
@@ -200,8 +175,53 @@ def run(args):
                 print(ip, "attempted without success", count, "times")
         print()
 
+def enumerate_file(f, args):
+    req_count = 0 # total number of requests
+    ips_reqs = dict() # total number of requests for each ip, the lenght will be used as total number of unique ips
+    failed_login_attempts = dict() # number of failed login attempts from each ip
+    error_count = 0 # number of requests answered with 4xx or 5xx
+    hour_reqs = [0] * 24
+    hour_errs = [0] * 24
+    while (line := f.readline()) != '':
+        line = line.strip()
+        try:
+            fields = parse_line(line)
+            log = interpret_fields(fields)
+            req_count += 1
+            if log.ip != None:
+                ips_reqs[log.ip] = ips_reqs.get(log.ip, 0) + 1
+            is_err = bool(log.status_code is not None and 400 <= log.status_code < 600)
+            error_count += is_err # bool adds 0 or 1 to int
+            # for the time table
+            if log.time is not None:
+                hour = log.time[0]
+                if 0 <= hour < 24:
+                    hour_reqs[hour] += 1
+                    hour_errs[hour] += is_err
+            if is_err and log.req is not None and "login" in log.req:
+                failed_login_attempts[log.ip] = failed_login_attempts.get(log.ip, 0) + 1
+        except ValueError as e:
+            if args.verbose:
+                print(f"[warning] bad line {line}", file=sys.stderr)
+    #
+    basic_report(args, req_count, error_count, ips_reqs)
+    time_dist_report(args, hour_reqs, hour_errs)
+    login_report(args, failed_login_attempts)
+
+def run(args):
+    if args.file is None or not os.path.isfile(args.file):
+        raise FileNotFoundError(f"{args.file} doesn't exists")
+    
+    if args.gzip:
+        with gzip.open(args.file, "rt") as f:
+            enumerate_file(f, args)
+    else:
+        with open(args.file, "r") as f: # throws error if a proper file is not supplied
+            enumerate_file(f, args)
+
 def main():
     aparser = argparse.ArgumentParser()
+    aparser.add_argument("-g", "--gzip", help="use a gzip compressed file", action="store_true")
     aparser.add_argument("-f", "--file", help="log file", required=True)
     aparser.add_argument("-b", "--basic-report", action="store_true", help="show basic report")
     aparser.add_argument("-t", "--time-distribution", action="store_true", help="show time distribution of accesses")
