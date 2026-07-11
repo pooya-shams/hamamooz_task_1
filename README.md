@@ -23,6 +23,19 @@ you can ask for a time distribution of the requests in the report using the `-t`
 python main.py -f access.log -b -t
 ```
 
+you can specify the number of required top ips in the report using the `-n` or `--ip-count` flag. the default is 10.
+
+```sh
+python main.py -f access.log -b -n 10
+```
+
+you can check for unusual login attempts by using the `-l` or `--login-attack` flag. if no argument is supplied, the required number of attempts to mark this ip as an attacker is 10. otherwise the supplied count is used as the threshold.
+
+```sh
+python main.py -f access.log -b -l 100
+```
+
+
 ## testing
 
 there are basic unit tests included in `test.py` which can simply be run.
