@@ -53,6 +53,7 @@ def parse_line(line):
     fields = split_line(line)
     if len(fields) != 9: # the len should be 9 maybe not use a magic number but not now
         raise ValueError(f"malformed line bad number of fields extracted {len(fields)}")
+    return tuple(fields)
 
 def main():
     parse_line("""62.175.167.52 - - [01/Jun/2026:00:00:00 +0000] "GET / HTTP/1.1" 200 8956 "-" "python-requests/2.31.0"\n""")
