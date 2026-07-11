@@ -136,7 +136,7 @@ def parse_line(line):
         raise ValueError(f"malformed line bad number of fields extracted {len(fields)}")
     return tuple(fields)
 
-def interpret_feilds(fields):
+def interpret_fields(fields):
     """ expects a tuple of fields and returns a structured """
     log = log_line()
     log.set_from_tuple(fields)
@@ -155,7 +155,7 @@ def run(args):
             line = line.strip()
             try:
                 fields = parse_line(line)
-                log = interpret_feilds(fields)
+                log = interpret_fields(fields)
                 req_count += 1
                 if log.ip != None:
                     ips_reqs[log.ip] = ips_reqs.get(log.ip, 0) + 1
