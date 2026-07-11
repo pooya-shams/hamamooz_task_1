@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+import argparse
 
 
 def split_line(line):
@@ -55,10 +56,18 @@ def parse_line(line):
         raise ValueError(f"malformed line bad number of fields extracted {len(fields)}")
     return tuple(fields)
 
-def main():
-    parse_line("""62.175.167.52 - - [01/Jun/2026:00:00:00 +0000] "GET / HTTP/1.1" 200 8956 "-" "python-requests/2.31.0"\n""")
-    parse_line("""garbage_line<<<12213""")
 
+def run(args):
+    pass
+
+def main():
+    aparser = argparse.ArgumentParser()
+    aparser.add_argument("-f", "--file", help="log file")
+    aparser.add_argument("-b", "--basic-report", action="store_true", help="show basic report")
+    aparser.add_argument("-t", "--time-distribution", action="store_true", help="show time distribution of accesses")
+    args = aparser.parse_args()
+
+    run(args)
 
 if __name__ == "__main__":
     main()
