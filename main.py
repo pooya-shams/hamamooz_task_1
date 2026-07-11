@@ -148,6 +148,8 @@ def run(args):
     req_count = 0 # total number of requests
     ips_reqs = dict() # total number of requests for each ip, the lenght will be used as total number of unique ips
     error_count = 0 # number of requests answered with 4xx or 5xx
+    hour_reqs = [0] * 24
+    hour_errs = [0] * 24
     with open(args.file, "r") as f: # throws error if a proper file is not supplied
         while (line := f.readline()) != '':
             line = line.strip()
@@ -157,8 +159,14 @@ def run(args):
                 req_count += 1
                 if log.ip != None:
                     ips_reqs[log.ip] = ips_reqs.get(log.ip, 0) + 1
-                if 400 <= log.status_code < 600:
-                    error_count += 1
+                is_err = bool(400 <= log.status_code < 600)
+                error_count += is_err # bool adds 0 or 1 to int
+                # for the time table
+                if log.time is not None:
+                    hour = log.time[0]
+                    if 0 <= hour < 24:
+                        hour_reqs[hour] += 1
+                        hour_errs[hour] += is_err
             except ValueError as e:
                 if args.verbose:
                     print(f"[warning] bad line {line}", file=sys.stderr)
@@ -168,6 +176,14 @@ def run(args):
         print("total reqs", req_count)
         print("total error", error_count, f"({error_count / req_count:.2%})")
         print("total ips", len(ips_reqs))
+        print()
+    if args.time_distribution:
+        print("=== request count by time ===")
+        print("peak requests hour is marked with *\n")
+        print("hour\t\trequests\t\terror")
+        peak_hour = hour_reqs.index(max(hour_reqs))
+        for i, (req, err) in enumerate(zip(hour_reqs, hour_errs)):
+            print(f"{i:2.0f}"+ ("*" if i == peak_hour else ""), req, err, sep="\t\t")
 
 def main():
     aparser = argparse.ArgumentParser()
