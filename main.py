@@ -173,13 +173,18 @@ def run(args):
     #
     if args.basic_report:
         print("=== basic report ===")
-        print("total reqs", req_count)
-        print("total error", error_count, f"({error_count / req_count:.2%})")
-        print("total ips", len(ips_reqs))
+        print("Total reqs", req_count)
+        print("Total error", error_count, f"({error_count / req_count:.2%})")
+        print("Total ips", len(ips_reqs))
+        # getting top ips by request number
+        top_ips = sorted(ips_reqs.items(), key=lambda x: -x[1])[:args.ip_count]
+        print(f"Top {args.ip_count} ips by number of requests")
+        for ip, count in top_ips:
+            print("\t", ip, ":", count)
         print()
     if args.time_distribution:
         print("=== request count by time ===")
-        print("peak requests hour is marked with *\n")
+        print("Peak requests hour is marked with *\n")
         print("hour\t\trequests\t\terror")
         peak_hour = hour_reqs.index(max(hour_reqs))
         for i, (req, err) in enumerate(zip(hour_reqs, hour_errs)):
@@ -190,6 +195,7 @@ def main():
     aparser.add_argument("-f", "--file", help="log file", required=True)
     aparser.add_argument("-b", "--basic-report", action="store_true", help="show basic report")
     aparser.add_argument("-t", "--time-distribution", action="store_true", help="show time distribution of accesses")
+    aparser.add_argument("-n", "--ip-count", help="number of top ips in report", type=int, default=10)
     aparser.add_argument("-v", "--verbose", action="store_true")
     args = aparser.parse_args()
 
