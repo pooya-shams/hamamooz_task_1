@@ -34,9 +34,9 @@ class log_line:
 
     def _match_str(string):
         if string.startswith('"') and string.endswith('"'):
-            return string[1:-2]
+            return string[1:-1]
         elif string.startswith("'") and string.endswith("'"):
-            return string[1:-2]
+            return string[1:-1]
         return string
 
     def _match_time(timestamp):
