@@ -5,6 +5,7 @@ import argparse
 import pathlib
 import os
 import re
+from timeit import default_timer as timer
 
 class log_line:
     """
@@ -147,6 +148,7 @@ def run(args):
         raise FileNotFoundError(f"{args.file} doesn't exists")
     req_count = 0 # total number of requests
     ips_reqs = dict() # total number of requests for each ip, the lenght will be used as total number of unique ips
+    failed_login_attempts = dict() # number of failed login attempts from each ip
     error_count = 0 # number of requests answered with 4xx or 5xx
     hour_reqs = [0] * 24
     hour_errs = [0] * 24
@@ -159,7 +161,7 @@ def run(args):
                 req_count += 1
                 if log.ip != None:
                     ips_reqs[log.ip] = ips_reqs.get(log.ip, 0) + 1
-                is_err = bool(400 <= log.status_code < 600)
+                is_err = bool(log.status_code is not None and 400 <= log.status_code < 600)
                 error_count += is_err # bool adds 0 or 1 to int
                 # for the time table
                 if log.time is not None:
@@ -167,28 +169,36 @@ def run(args):
                     if 0 <= hour < 24:
                         hour_reqs[hour] += 1
                         hour_errs[hour] += is_err
+                if is_err and log.req is not None and "login" in log.req:
+                    failed_login_attempts[log.ip] = failed_login_attempts.get(log.ip, 0) + 1
             except ValueError as e:
                 if args.verbose:
                     print(f"[warning] bad line {line}", file=sys.stderr)
     #
     if args.basic_report:
-        print("=== basic report ===")
-        print("Total reqs", req_count)
-        print("Total error", error_count, f"({error_count / req_count:.2%})")
-        print("Total ips", len(ips_reqs))
+        print("=== Basic report ===")
+        print("[info] Total reqs", req_count)
+        print("[info] Total error", error_count, f"({error_count / req_count:.2%})")
+        print("[info] Total ips", len(ips_reqs))
         # getting top ips by request number
         top_ips = sorted(ips_reqs.items(), key=lambda x: -x[1])[:args.ip_count]
-        print(f"Top {args.ip_count} ips by number of requests")
+        print(f"[info] Top {args.ip_count} ips by number of requests")
         for ip, count in top_ips:
             print("\t", ip, ":", count)
         print()
     if args.time_distribution:
-        print("=== request count by time ===")
-        print("Peak requests hour is marked with *\n")
+        print("=== Request count by time ===")
+        print("[info] Peak requests hour is marked with *\n")
         print("hour\t\trequests\t\terror")
         peak_hour = hour_reqs.index(max(hour_reqs))
         for i, (req, err) in enumerate(zip(hour_reqs, hour_errs)):
             print(f"{i:2.0f}"+ ("*" if i == peak_hour else ""), req, err, sep="\t\t")
+    if args.login_attack:
+        print("=== Failed login attempts ===")
+        for ip, count in failed_login_attempts.items():
+            if count > args.login_attack:
+                print(ip, "attempted without success", count, "times")
+        print()
 
 def main():
     aparser = argparse.ArgumentParser()
@@ -196,10 +206,14 @@ def main():
     aparser.add_argument("-b", "--basic-report", action="store_true", help="show basic report")
     aparser.add_argument("-t", "--time-distribution", action="store_true", help="show time distribution of accesses")
     aparser.add_argument("-n", "--ip-count", help="number of top ips in report", type=int, default=10)
+    aparser.add_argument("-l", "--login-attack", help="find any ip with high number of login attempts. you can specify the required number of attempts to flag this ip. the default is 10", nargs="?", type=int, const=10, default=None)
     aparser.add_argument("-v", "--verbose", action="store_true")
     args = aparser.parse_args()
 
+    start = timer()
     run(args)
+    end = timer()
+    print("[done] ellapsed time:", end-start)
 
 if __name__ == "__main__":
     main()
